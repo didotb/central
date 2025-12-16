@@ -177,7 +177,4 @@ server {
     include /usr/share/odk/nginx/common-headers.conf;
   }
 
-  location /csp-report {
-    proxy_pass https://${SENTRY_ORG_SUBDOMAIN}.ingest.sentry.io/api/${SENTRY_PROJECT}/security/?sentry_key=${SENTRY_KEY};
-  }
 }
