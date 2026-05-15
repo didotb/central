@@ -52,6 +52,7 @@ RUN apt-get update \
         procps \
         postgresql-client-14 \
         netcat-traditional \
+        openssl \
     && rm -rf /var/lib/apt/lists/* \
     && npm clean-install --omit=dev --no-audit \
         --fund=false --update-notifier=false
