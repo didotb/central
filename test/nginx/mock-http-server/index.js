@@ -6,19 +6,11 @@ const log = (...args) => console.log('[mock-http-server]', ...args);
 const requests = [];
 
 const app = express();
+app.set('case sensitive routing', true);
+app.set('query parser', 'simple');
 
 app.use((req, res, next) => {
   console.log(new Date(), req.method, req.originalUrl);
-
-  // always set CSP header to detect (or allow) leaks from backend through to the client
-  const topLevelDirectives = [
-    'default-src',
-    'form-action',
-    'frame-ancestors',
-  ];
-  res.set('Content-Security-Policy',             topLevelDirectives.map(d => `${d} NOTE:FROM-BACKEND:block`)     .join('; '));
-  res.set('Content-Security-Policy-Report-Only', topLevelDirectives.map(d => `${d} NOTE:FROM-BACKEND:reportOnly`).join('; '));
-
   next();
 });
 
@@ -26,6 +18,10 @@ app.use((req, res, next) => {
 app.use('/-/', (req, res, next) => {
   res.set('Vary', 'Accept-Encoding');
   res.set('Cache-Control', 'public, max-age=0');
+
+  // Set both CSP headers from enketo.  Eventually nginx should be confident to override both.
+  res.set('Content-Security-Policy',             `NOTE:FROM-BACKEND:block`);
+  res.set('Content-Security-Policy-Report-Only', `NOTE:FROM-BACKEND:reportOnly`);
   next();
 });
 
@@ -45,6 +41,25 @@ app.get('/v1/projects', (_, res) => {
   res.send('OK');
 });
 
+app.get('/v1/oidc/callback', (req, res) => {
+  // This endpoint is 100% responsible for its own headers.  Set both, and test they both get through.
+  res.set('Content-Security-Policy',             `NOTE:FROM-BACKEND:block`);
+  res.set('Content-Security-Policy-Report-Only', `NOTE:FROM-BACKEND:reportOnly`);
+
+  res.send('OK');
+});
+
+app.get('/v1/broken-stream', (req, res) => {
+  res.status(200);
+  res.write('beginning stream...', () => {
+    // Write has now flushed from NodeJS.  Give it a chance to flush
+    // from lower-level network buffer.
+    setTimeout(() => {
+       res.socket.destroy();
+    }, 50);
+  });
+});
+
 [
   'delete',
   'get',
@@ -57,6 +72,6 @@ app.get('/v1/projects', (_, res) => {
   res.send('OK');
 }));
 
-app.listen(port, () => {
+app.listen(port, '0.0.0.0', () => {
   log(`Listening on port: ${port}`);
 });
